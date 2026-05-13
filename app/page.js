@@ -15,6 +15,33 @@ function efColor(ef) {
   return EF_COLORS[ef] || '#888';
 }
 
+function buildPopup(t, color) {
+  const name = t.eventName ? `<div style="font-size:1rem; font-weight:bold; margin-bottom:4px;">${t.eventName}</div>` : '';
+  const narrative = t.eventNarrative || t.episodeNarrative;
+  const narrativeHtml = narrative
+    ? `<hr style="margin:6px 0"/><div style="font-size:0.78rem; color:#333; max-width:280px; line-height:1.4;">${narrative}</div>`
+    : '';
+
+  return `
+    <div style="font-family: monospace; min-width:220px; max-width:300px;">
+      ${name}
+      <span style="font-size:1.2rem; font-weight:bold; color:${color}">${t.efScale}</span>
+      &nbsp;&nbsp;<span style="font-size:0.85rem;">${t.date}</span><br/>
+      <span style="font-size:0.9rem;">${t.county}, ${t.state}</span>
+      <hr style="margin:6px 0"/>
+      <table style="font-size:0.82rem; border-collapse:collapse; width:100%;">
+        <tr><td style="color:#666; padding:1px 8px 1px 0;">Track length</td><td><b>${t.trackLengthMiles || '?'} miles</b></td></tr>
+        <tr><td style="color:#666; padding:1px 8px 1px 0;">Track width</td><td><b>${t.trackWidthYards || '?'} yards</b></td></tr>
+        <tr><td style="color:#666; padding:1px 8px 1px 0;">Deaths</td><td><b>${t.deaths || 0}</b></td></tr>
+        <tr><td style="color:#666; padding:1px 8px 1px 0;">Injuries</td><td><b>${t.injuries || 0}</b></td></tr>
+        <tr><td style="color:#666; padding:1px 8px 1px 0;">Property damage</td><td><b>${t.propertyDamage || 'Unknown'}</b></td></tr>
+        <tr><td style="color:#666; padding:1px 8px 1px 0;">Crops lost</td><td><b>${t.cropsLost || 'None'}</b></td></tr>
+      </table>
+      ${narrativeHtml}
+    </div>
+  `;
+}
+
 export default function Home() {
   const [tornadoes, setTornadoes] = useState([]);
   const [total, setTotal] = useState(0);
@@ -36,7 +63,6 @@ export default function Home() {
     setLoading(false);
   };
 
-  // Load Leaflet and initialise map
   useEffect(() => {
     if (leafletMapRef.current) return;
 
@@ -59,13 +85,11 @@ export default function Home() {
     document.head.appendChild(script);
   }, []);
 
-  // Draw tracks whenever tornadoes data changes
   useEffect(() => {
     if (!leafletMapRef.current || !window.L) return;
     const L = window.L;
     const map = leafletMapRef.current;
 
-    // Remove old layers
     layersRef.current.forEach(l => map.removeLayer(l));
     layersRef.current = [];
 
@@ -78,37 +102,19 @@ export default function Home() {
       if (isNaN(lat1) || isNaN(lon1)) return;
 
       const color = efColor(t.efScale);
-
-      const popupContent = `
-        <div style="font-family: monospace; min-width: 200px;">
-          <strong style="font-size: 1.1rem; color: ${color}">${t.efScale}</strong><br/>
-          <strong>${t.date}</strong><br/>
-          ${t.county}, ${t.state}<br/>
-          <hr style="margin: 6px 0"/>
-          Track: ${t.trackLengthMiles} miles<br/>
-          Width: ${t.trackWidthYards} yards<br/>
-          Deaths: ${t.deaths || 0}<br/>
-          Injuries: ${t.injuries || 0}<br/>
-          Damage: ${t.propertyDamage || 'Unknown'}
-        </div>
-      `;
+      const popup = buildPopup(t, color);
 
       if (!isNaN(lat2) && !isNaN(lon2) && (lat2 !== 0 || lon2 !== 0)) {
         const line = L.polyline([[lat1, lon1], [lat2, lon2]], {
-          color,
-          weight: 3,
-          opacity: 0.8,
+          color, weight: 3, opacity: 0.8,
         }).addTo(map);
-        line.bindPopup(popupContent);
+        line.bindPopup(popup, { maxWidth: 320 });
         layersRef.current.push(line);
       } else {
         const marker = L.circleMarker([lat1, lon1], {
-          radius: 5,
-          color,
-          fillColor: color,
-          fillOpacity: 0.8,
+          radius: 5, color, fillColor: color, fillOpacity: 0.8,
         }).addTo(map);
-        marker.bindPopup(popupContent);
+        marker.bindPopup(popup, { maxWidth: 320 });
         layersRef.current.push(marker);
       }
     });
@@ -121,23 +127,15 @@ export default function Home() {
 
   return (
     <main style={{ fontFamily: 'monospace', height: '100vh', display: 'flex', flexDirection: 'column', background: '#1a1a2e' }}>
-
-      {/* Header */}
       <div style={{ padding: '1rem 1.5rem', background: '#16213e', color: 'white', display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
         <h1 style={{ margin: 0, fontSize: '1.4rem' }}>🌪 Tornado Explorer — 2011</h1>
-
-        {/* EF Filter buttons */}
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={{ color: '#aaa', fontSize: '0.85rem' }}>Filter:</span>
           <button onClick={() => handleFilter('')} style={btnStyle(efScale === '', '#555')}>All</button>
           {Object.entries(EF_COLORS).map(([ef, color]) => (
-            <button key={ef} onClick={() => handleFilter(ef)} style={btnStyle(efScale === ef, color)}>
-              {ef}
-            </button>
+            <button key={ef} onClick={() => handleFilter(ef)} style={btnStyle(efScale === ef, color)}>{ef}</button>
           ))}
         </div>
-
-        {/* Count */}
         <div style={{ marginLeft: 'auto' }}>
           {loading
             ? <span style={{ color: '#aaa', fontSize: '0.85rem' }}>Loading...</span>
@@ -145,8 +143,6 @@ export default function Home() {
           }
         </div>
       </div>
-
-      {/* Map */}
       <div ref={mapRef} style={{ flex: 1 }} />
     </main>
   );
