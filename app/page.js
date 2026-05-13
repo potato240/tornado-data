@@ -80,6 +80,8 @@ export default function Home() {
   const [efScale, setEfScale] = useState('');
   const [selectedState, setSelectedState] = useState('');
   const [isPlaying, setIsPlaying] = useState(false);
+  const [satellite, setSatellite] = useState(false);
+  const tileLayerRef = useRef(null);
   const mapRef = useRef(null);
   const leafletMapRef = useRef(null);
   const layersRef = useRef([]);
@@ -110,10 +112,8 @@ export default function Home() {
     script.onload = () => {
       const L = window.L;
       const map = L.map(mapRef.current).setView([37.5, -93], 5);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-      }).addTo(map);
       leafletMapRef.current = map;
+      tileLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
       fetchData('', '');
     };
     document.head.appendChild(script);
@@ -269,6 +269,25 @@ export default function Home() {
     playNext();
   };
 
+  const handleSatellite = (on) => {
+    setSatellite(on);
+    const map = leafletMapRef.current;
+    const L = window.L;
+    if (!map || !L) return;
+    if (tileLayerRef.current) map.removeLayer(tileLayerRef.current);
+    if (on) {
+      tileLayerRef.current = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        { attribution: '© Esri' }
+      ).addTo(map);
+    } else {
+      tileLayerRef.current = L.tileLayer(
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        { attribution: '© OpenStreetMap contributors' }
+      ).addTo(map);
+    }
+  };
+
   const handleEfFilter = (ef) => {
     setEfScale(ef);
     fetchData(ef, selectedState);
@@ -326,6 +345,11 @@ export default function Home() {
         <div style={{ color: '#aaa', fontSize: '0.8rem' }}>
           {loading ? 'Loading...' : `${total} tornadoes`}
         </div>
+        <div style={{ display: 'flex', gap: '0.4rem' }}>
+          <button onClick={() => handleSatellite(false)} style={btnStyle(!satellite, '#555')}>🗺 Map</button>
+          <button onClick={() => handleSatellite(true)} style={btnStyle(satellite, '#555')}>🛰 Satellite</button>
+        </div>
+
       </div>
 
       <div style={{ position: 'relative', flex: 1 }}>
