@@ -84,6 +84,7 @@ export default function Home() {
   const leafletMapRef = useRef(null);
   const layersRef = useRef([]);
   const playbackRef = useRef(null);
+  const dateLabelRef = useRef(null);
 
   const fetchData = async (ef, state) => {
     setLoading(true);
@@ -203,6 +204,7 @@ export default function Home() {
     if (isPlaying) {
       // Stop
       if (playbackRef.current) clearTimeout(playbackRef.current);
+      if (dateLabelRef.current) dateLabelRef.current.textContent = '';
       setIsPlaying(false);
       return;
     }
@@ -240,6 +242,7 @@ export default function Home() {
     const playNext = () => {
       if (index >= playable.length) {
         setIsPlaying(false);
+        if (dateLabelRef.current) dateLabelRef.current.textContent = '';
         return;
       }
       const t = playable[index];
@@ -250,6 +253,12 @@ export default function Home() {
       const lon2 = parseFloat(t.endLon);
       const color = efColor(t.efScale);
       const trackMiles = parseFloat(t.trackLengthMiles) || 1;
+
+      // Update date label
+      if (dateLabelRef.current) {
+        dateLabelRef.current.textContent = t.date + '  ' + t.efScale + '  ' + t.county;
+        dateLabelRef.current.style.borderColor = color;
+      }
 
       animateLine(map, L, lat1, lon1, lat2, lon2, color, trackMiles, null);
 
@@ -319,7 +328,30 @@ export default function Home() {
         </div>
       </div>
 
-      <div ref={mapRef} style={{ flex: 1 }} />
+      <div style={{ position: 'relative', flex: 1 }}>
+        <div ref={mapRef} style={{ position: 'absolute', inset: 0 }} />
+        <div
+          ref={dateLabelRef}
+          style={{
+            position: 'absolute',
+            bottom: '2rem',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 1000,
+            background: 'rgba(22,33,62,0.92)',
+            color: 'white',
+            fontFamily: 'monospace',
+            fontSize: '1rem',
+            padding: '0.5rem 1.2rem',
+            borderRadius: '6px',
+            border: '2px solid #555',
+            pointerEvents: 'none',
+            minWidth: '200px',
+            textAlign: 'center',
+            letterSpacing: '0.03em',
+          }}
+        />
+      </div>
     </main>
   );
 }
