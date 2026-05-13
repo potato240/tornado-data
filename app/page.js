@@ -23,7 +23,6 @@ export default function Home() {
   const mapRef = useRef(null);
   const leafletMapRef = useRef(null);
   const layersRef = useRef([]);
-  const animationRef = useRef(null);
 
   const fetchData = async (ef) => {
     setLoading(true);
@@ -77,8 +76,8 @@ export default function Home() {
 
       const color = efColor(t.efScale);
       const hasTrack = !isNaN(lat2) && !isNaN(lon2) && (lat2 !== 0 || lon2 !== 0);
+      const trackMiles = parseFloat(t.trackLengthMiles) || 1;
 
-      // Draw the static line or marker
       let layer;
       if (hasTrack) {
         layer = L.polyline([[lat1, lon1], [lat2, lon2]], {
@@ -90,10 +89,9 @@ export default function Home() {
         }).addTo(map);
       }
 
-      // Build popup with Play button if we have a track
       const playBtn = hasTrack
-        ? `<button onclick="window._animateTornado('${t.id}',${lat1},${lon1},${lat2},${lon2},'${color}')" 
-            style="margin-top:8px; padding:4px 12px; background:${color}; color:white; border:none; border-radius:4px; cursor:pointer; font-family:monospace; font-size:0.85rem; width:100%;">
+        ? `<button onclick="window._animateTornado(${lat1},${lon1},${lat2},${lon2},'${color}',${trackMiles})"
+            style="margin-top:8px; padding:5px 12px; background:${color}; color:white; border:none; border-radius:4px; cursor:pointer; font-family:monospace; font-size:0.85rem; width:100%;">
             ▶ Play track
            </button>`
         : '';
@@ -103,7 +101,9 @@ export default function Home() {
         ? `<hr style="margin:6px 0"/><div style="font-size:0.78rem; color:#333; line-height:1.4; max-height:120px; overflow-y:auto; white-space:normal; word-wrap:break-word;">${narrative}</div>`
         : '';
 
-      const name = t.eventName ? `<div style="font-size:0.95rem; font-weight:bold; margin-bottom:4px;">${t.eventName}</div>` : '';
+      const name = t.eventName
+        ? `<div style="font-size:0.95rem; font-weight:bold; margin-bottom:4px;">${t.eventName}</div>`
+        : '';
 
       const popup = `
         <div style="font-family:monospace; width:260px;">
@@ -129,32 +129,24 @@ export default function Home() {
       layersRef.current.push(layer);
     });
 
-    // Global animation function called from popup button
-    window._animateTornado = (id, lat1, lon1, lat2, lon2, color) => {
+    // Global animation function
+    window._animateTornado = (lat1, lon1, lat2, lon2, color, trackMiles) => {
       const L = window.L;
       const map = leafletMapRef.current;
 
-      // Remove any existing animation layer
+      // Close popup after brief delay
+      setTimeout(() => map.closePopup(), 50);
+
+      // Clear previous animation
       if (window._animLayer) map.removeLayer(window._animLayer);
       if (window._animMarker) map.removeLayer(window._animMarker);
+      if (window._animTimer) clearInterval(window._animTimer);
+      if (window._animFade) clearInterval(window._animFade);
 
-      // Animated line starts empty
-      const animLine = L.polyline([], {
-        color, weight: 5, opacity: 1,
-      }).addTo(map);
-      window._animLayer = animLine;
-
-      // Moving dot at the tip
-      const dot = L.circleMarker([lat1, lon1], {
-        radius: 7, color: 'white', fillColor: color, fillOpacity: 1, weight: 2,
-      }).addTo(map);
-      window._animMarker = dot;
-
-      // Animate over 2 seconds
-      const steps = 60;
-      const duration = 2000;
+      // Scale duration by track length
+      const duration = Math.min(6000, Math.max(1500, trackMiles * 100));
+      const steps = 80;
       const interval = duration / steps;
-      let step = 0;
 
       const points = [];
       for (let i = 0; i <= steps; i++) {
@@ -165,10 +157,39 @@ export default function Home() {
         ]);
       }
 
-      const timer = setInterval(() => {
+      const animLine = L.polyline([], {
+        color, weight: 6, opacity: 1,
+      }).addTo(map);
+      window._animLayer = animLine;
+
+      const dot = L.circleMarker(points[0], {
+        radius: 8, color: 'white', fillColor: color, fillOpacity: 1, weight: 2,
+      }).addTo(map);
+      window._animMarker = dot;
+
+      // Draw the track
+      let step = 0;
+      window._animTimer = setInterval(() => {
         if (step > steps) {
-          clearInterval(timer);
+          clearInterval(window._animTimer);
           map.removeLayer(dot);
+          window._animMarker = null;
+
+          // Fade out the line after a short pause
+          setTimeout(() => {
+            let opacity = 1.0;
+            window._animFade = setInterval(() => {
+              opacity -= 0.05;
+              if (opacity <= 0) {
+                clearInterval(window._animFade);
+                map.removeLayer(animLine);
+                window._animLayer = null;
+              } else {
+                animLine.setStyle({ opacity });
+              }
+            }, 40);
+          }, 600);
+
           return;
         }
         animLine.setLatLngs(points.slice(0, step + 1));
