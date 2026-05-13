@@ -32,7 +32,6 @@ export async function GET(request) {
       tornadoes = tornadoes.filter(row => row.TOR_F_SCALE === efScale);
     }
 
-    // Return the most useful columns only
     const results = tornadoes.slice(0, limit).map(row => ({
       id: row.EVENT_ID,
       date: row.BEGIN_DATE_TIME,
@@ -44,11 +43,14 @@ export async function GET(request) {
       deaths: row.DEATHS_DIRECT,
       injuries: row.INJURIES_DIRECT,
       propertyDamage: row.DAMAGE_PROPERTY,
+      cropsLost: row.DAMAGE_CROPS,
       beginLat: row.BEGIN_LAT,
       beginLon: row.BEGIN_LON,
       endLat: row.END_LAT,
       endLon: row.END_LON,
-      narrative: row.EPISODE_NARRATIVE,
+      eventName: row.EVENT_NAME,
+      episodeNarrative: row.EPISODE_NARRATIVE,
+      eventNarrative: row.EVENT_NARRATIVE,
     }));
 
     return NextResponse.json({
