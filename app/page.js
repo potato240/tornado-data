@@ -19,11 +19,11 @@ function buildPopup(t, color) {
   const name = t.eventName ? `<div style="font-size:1rem; font-weight:bold; margin-bottom:4px;">${t.eventName}</div>` : '';
   const narrative = t.eventNarrative || t.episodeNarrative;
   const narrativeHtml = narrative
-    ? `<hr style="margin:6px 0"/><div style="font-size:0.78rem; color:#333; max-width:280px; line-height:1.4;">${narrative}</div>`
+    ? `<hr style="margin:6px 0"/><div style="font-size:0.78rem; color:#333; line-height:1.4; max-height:150px; overflow-y:auto; white-space:normal; word-wrap:break-word;">${narrative}</div>`
     : '';
 
   return `
-    <div style="font-family: monospace; min-width:220px; max-width:300px;">
+    <div style="font-family: monospace; width:280px;">
       ${name}
       <span style="font-size:1.2rem; font-weight:bold; color:${color}">${t.efScale}</span>
       &nbsp;&nbsp;<span style="font-size:0.85rem;">${t.date}</span><br/>
