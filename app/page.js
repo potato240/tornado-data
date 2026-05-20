@@ -52,9 +52,9 @@ function animateLine(map, L, lat1, lon1, lat2, lon2, color, trackMiles, onDone) 
     points.push([lat1 + (lat2 - lat1) * frac, lon1 + (lon2 - lon1) * frac]);
   }
 
-  const animLine = L.polyline([], { color, weight: 6, opacity: 1 }).addTo(map);
+  const animLine = L.polyline([], { color, weight: 8, opacity: 1 }).addTo(map);
   const dot = L.circleMarker(points[0], {
-    radius: 8, color: 'white', fillColor: color, fillOpacity: 1, weight: 2,
+    radius: 10, color: 'white', fillColor: color, fillOpacity: 1, weight: 2,
   }).addTo(map);
 
   let step = 0;
@@ -111,7 +111,7 @@ export default function Home() {
     script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
     script.onload = () => {
       const L = window.L;
-      const map = L.map(mapRef.current).setView([37.5, -93], 5);
+      const map = L.map(mapRef.current, { tap: false }).setView([37.5, -93], 4);
       leafletMapRef.current = map;
       tileLayerRef.current = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
       fetchData('', '');
@@ -140,50 +140,75 @@ export default function Home() {
 
       let layer;
       if (hasTrack) {
-        layer = L.polyline([[lat1, lon1], [lat2, lon2]], { color, weight: 3, opacity: 0.8 }).addTo(map);
+        // Invisible wider line on top for easier tapping
+        const tapTarget = L.polyline([[lat1, lon1], [lat2, lon2]], {
+          color: 'transparent', weight: 20, opacity: 0
+        }).addTo(map);
+        layer = L.polyline([[lat1, lon1], [lat2, lon2]], { color, weight: 5, opacity: 0.85 }).addTo(map);
+
+        const playBtn = `<button onclick="window._animateSingle(${lat1},${lon1},${lat2},${lon2},'${color}',${trackMiles})"
+          style="margin-top:10px;padding:10px 14px;background:${color};color:white;border:none;border-radius:6px;cursor:pointer;font-family:monospace;font-size:1rem;width:100%;min-height:44px;">
+          ▶ Play track
+         </button>`;
+
+        const narrative = t.eventNarrative || t.episodeNarrative;
+        const narrativeHtml = narrative
+          ? `<hr style="margin:8px 0"/><div style="font-size:0.82rem;color:#333;line-height:1.5;max-height:140px;overflow-y:auto;white-space:normal;word-wrap:break-word;">${narrative}</div>`
+          : '';
+        const name = t.eventName
+          ? `<div style="font-size:1rem;font-weight:bold;margin-bottom:6px;">${t.eventName}</div>`
+          : '';
+
+        const popup = `
+          <div style="font-family:monospace;width:min(280px,80vw);">
+            ${name}
+            <span style="font-size:1.2rem;font-weight:bold;color:${color}">${t.efScale}</span>
+            &nbsp;<span style="font-size:0.85rem;">${t.date}</span><br/>
+            <span style="font-size:0.9rem;">${t.county}, ${t.state}</span>
+            <hr style="margin:8px 0"/>
+            <table style="font-size:0.85rem;border-collapse:collapse;width:100%;">
+              <tr><td style="color:#666;padding:2px 8px 2px 0;">Track length</td><td><b>${t.trackLengthMiles || '?'} miles</b></td></tr>
+              <tr><td style="color:#666;padding:2px 8px 2px 0;">Track width</td><td><b>${t.trackWidthYards || '?'} yards</b></td></tr>
+              <tr><td style="color:#666;padding:2px 8px 2px 0;">Deaths</td><td><b>${t.deaths || 0}</b></td></tr>
+              <tr><td style="color:#666;padding:2px 8px 2px 0;">Injuries</td><td><b>${t.injuries || 0}</b></td></tr>
+              <tr><td style="color:#666;padding:2px 8px 2px 0;">Property damage</td><td><b>${t.propertyDamage || 'Unknown'}</b></td></tr>
+              <tr><td style="color:#666;padding:2px 8px 2px 0;">Crops lost</td><td><b>${t.cropsLost || 'None'}</b></td></tr>
+            </table>
+            ${playBtn}
+            ${narrativeHtml}
+          </div>`;
+
+        tapTarget.bindPopup(popup, { maxWidth: 300 });
+        layer.bindPopup(popup, { maxWidth: 300 });
+        layersRef.current.push(tapTarget);
       } else {
-        layer = L.circleMarker([lat1, lon1], { radius: 5, color, fillColor: color, fillOpacity: 0.8 }).addTo(map);
+        layer = L.circleMarker([lat1, lon1], { radius: 8, color, fillColor: color, fillOpacity: 0.85 }).addTo(map);
+
+        const narrative = t.eventNarrative || t.episodeNarrative;
+        const narrativeHtml = narrative
+          ? `<hr style="margin:8px 0"/><div style="font-size:0.82rem;color:#333;line-height:1.5;max-height:140px;overflow-y:auto;">${narrative}</div>`
+          : '';
+
+        const popup = `
+          <div style="font-family:monospace;width:min(280px,80vw);">
+            <span style="font-size:1.2rem;font-weight:bold;color:${color}">${t.efScale}</span>
+            &nbsp;<span style="font-size:0.85rem;">${t.date}</span><br/>
+            <span style="font-size:0.9rem;">${t.county}, ${t.state}</span>
+            <hr style="margin:8px 0"/>
+            <table style="font-size:0.85rem;border-collapse:collapse;width:100%;">
+              <tr><td style="color:#666;padding:2px 8px 2px 0;">Deaths</td><td><b>${t.deaths || 0}</b></td></tr>
+              <tr><td style="color:#666;padding:2px 8px 2px 0;">Injuries</td><td><b>${t.injuries || 0}</b></td></tr>
+              <tr><td style="color:#666;padding:2px 8px 2px 0;">Property damage</td><td><b>${t.propertyDamage || 'Unknown'}</b></td></tr>
+            </table>
+            ${narrativeHtml}
+          </div>`;
+
+        layer.bindPopup(popup, { maxWidth: 300 });
       }
 
-      const playBtn = hasTrack
-        ? `<button onclick="window._animateSingle(${lat1},${lon1},${lat2},${lon2},'${color}',${trackMiles})"
-            style="margin-top:8px;padding:5px 12px;background:${color};color:white;border:none;border-radius:4px;cursor:pointer;font-family:monospace;font-size:0.85rem;width:100%;">
-            ▶ Play track
-           </button>`
-        : '';
-
-      const narrative = t.eventNarrative || t.episodeNarrative;
-      const narrativeHtml = narrative
-        ? `<hr style="margin:6px 0"/><div style="font-size:0.78rem;color:#333;line-height:1.4;max-height:120px;overflow-y:auto;white-space:normal;word-wrap:break-word;">${narrative}</div>`
-        : '';
-      const name = t.eventName
-        ? `<div style="font-size:0.95rem;font-weight:bold;margin-bottom:4px;">${t.eventName}</div>`
-        : '';
-
-      const popup = `
-        <div style="font-family:monospace;width:260px;">
-          ${name}
-          <span style="font-size:1.1rem;font-weight:bold;color:${color}">${t.efScale}</span>
-          &nbsp;<span style="font-size:0.82rem;">${t.date}</span><br/>
-          <span style="font-size:0.85rem;">${t.county}, ${t.state}</span>
-          <hr style="margin:6px 0"/>
-          <table style="font-size:0.8rem;border-collapse:collapse;width:100%;">
-            <tr><td style="color:#666;padding:1px 6px 1px 0;">Track length</td><td><b>${t.trackLengthMiles || '?'} miles</b></td></tr>
-            <tr><td style="color:#666;padding:1px 6px 1px 0;">Track width</td><td><b>${t.trackWidthYards || '?'} yards</b></td></tr>
-            <tr><td style="color:#666;padding:1px 6px 1px 0;">Deaths</td><td><b>${t.deaths || 0}</b></td></tr>
-            <tr><td style="color:#666;padding:1px 6px 1px 0;">Injuries</td><td><b>${t.injuries || 0}</b></td></tr>
-            <tr><td style="color:#666;padding:1px 6px 1px 0;">Property damage</td><td><b>${t.propertyDamage || 'Unknown'}</b></td></tr>
-            <tr><td style="color:#666;padding:1px 6px 1px 0;">Crops lost</td><td><b>${t.cropsLost || 'None'}</b></td></tr>
-          </table>
-          ${playBtn}
-          ${narrativeHtml}
-        </div>`;
-
-      layer.bindPopup(popup, { maxWidth: 280 });
       layersRef.current.push(layer);
     });
 
-    // Single tornado animation (from popup)
     window._animateSingle = (lat1, lon1, lat2, lon2, color, trackMiles) => {
       const L = window.L;
       const map = leafletMapRef.current;
@@ -198,11 +223,9 @@ export default function Home() {
 
   }, [tornadoes]);
 
-  // State playback
   const handleStatePlay = () => {
     if (!selectedState) return;
     if (isPlaying) {
-      // Stop
       if (playbackRef.current) clearTimeout(playbackRef.current);
       if (dateLabelRef.current) dateLabelRef.current.textContent = '';
       setIsPlaying(false);
@@ -213,7 +236,6 @@ export default function Home() {
     const L = window.L;
     map.closePopup();
 
-    // Get tornadoes with valid tracks, sorted by date
     const playable = tornadoes
       .filter(t => {
         const lat2 = parseFloat(t.endLat);
@@ -224,10 +246,8 @@ export default function Home() {
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
     if (playable.length === 0) return;
-
     setIsPlaying(true);
 
-    // Zoom to state
     const lats = playable.map(t => parseFloat(t.beginLat)).filter(Boolean);
     const lons = playable.map(t => parseFloat(t.beginLon)).filter(Boolean);
     if (lats.length) {
@@ -254,15 +274,12 @@ export default function Home() {
       const color = efColor(t.efScale);
       const trackMiles = parseFloat(t.trackLengthMiles) || 1;
 
-      // Update date label
       if (dateLabelRef.current) {
         dateLabelRef.current.textContent = t.date + '  ' + t.efScale + '  ' + t.county;
         dateLabelRef.current.style.borderColor = color;
       }
 
       animateLine(map, L, lat1, lon1, lat2, lon2, color, trackMiles, null);
-
-      // Start next one 500ms after this one starts
       playbackRef.current = setTimeout(playNext, 500);
     };
 
@@ -299,26 +316,63 @@ export default function Home() {
   };
 
   return (
-    <main style={{ fontFamily: 'monospace', height: '100vh', display: 'flex', flexDirection: 'column', background: '#1a1a2e' }}>
-      <div style={{ padding: '0.75rem 1.5rem', background: '#16213e', color: 'white', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-        <h1 style={{ margin: 0, fontSize: '1.3rem' }}>🌪 Tornado Explorer — 2011</h1>
+    <main style={{
+      fontFamily: 'monospace',
+      height: '100dvh',
+      display: 'flex',
+      flexDirection: 'column',
+      background: '#1a1a2e',
+      overflow: 'hidden',
+    }}>
+      {/* Header — compact, never wraps to second line */}
+      <div style={{
+        padding: '0.5rem 0.75rem',
+        background: '#16213e',
+        color: 'white',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.5rem',
+        flexShrink: 0,
+        overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
+      }}>
+        <h1 style={{ margin: 0, fontSize: '1rem', whiteSpace: 'nowrap', flexShrink: 0 }}>🌪 Tornado Explorer 2011</h1>
+
+        <div style={{ width: '1px', background: '#444', alignSelf: 'stretch', flexShrink: 0 }} />
 
         {/* EF filters */}
-        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-          <span style={{ color: '#aaa', fontSize: '0.8rem' }}>EF:</span>
+        <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center', flexShrink: 0 }}>
           <button onClick={() => handleEfFilter('')} style={btnStyle(efScale === '', '#555')}>All</button>
           {Object.entries(EF_COLORS).map(([ef, color]) => (
             <button key={ef} onClick={() => handleEfFilter(ef)} style={btnStyle(efScale === ef, color)}>{ef}</button>
           ))}
         </div>
 
-        {/* State playback */}
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginLeft: 'auto' }}>
-          <span style={{ color: '#aaa', fontSize: '0.8rem' }}>Play state:</span>
+        <div style={{ width: '1px', background: '#444', alignSelf: 'stretch', flexShrink: 0 }} />
+
+        {/* Map/Satellite toggle */}
+        <div style={{ display: 'flex', gap: '0.3rem', flexShrink: 0 }}>
+          <button onClick={() => handleSatellite(false)} style={btnStyle(!satellite, '#555')}>🗺</button>
+          <button onClick={() => handleSatellite(true)} style={btnStyle(satellite, '#555')}>🛰</button>
+        </div>
+
+        <div style={{ width: '1px', background: '#444', alignSelf: 'stretch', flexShrink: 0 }} />
+
+        {/* State + play */}
+        <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center', flexShrink: 0 }}>
           <select
             value={selectedState}
             onChange={handleStateChange}
-            style={{ padding: '0.3rem 0.5rem', fontSize: '0.85rem', background: '#0f3460', color: 'white', border: '1px solid #444', borderRadius: '4px', fontFamily: 'monospace' }}
+            style={{
+              padding: '0.4rem 0.4rem',
+              fontSize: '0.8rem',
+              background: '#0f3460',
+              color: 'white',
+              border: '1px solid #444',
+              borderRadius: '4px',
+              fontFamily: 'monospace',
+              minHeight: '36px',
+            }}
           >
             <option value=''>All states</option>
             {US_STATES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -327,7 +381,7 @@ export default function Home() {
             onClick={handleStatePlay}
             disabled={!selectedState}
             style={{
-              padding: '0.3rem 1rem',
+              padding: '0.4rem 0.75rem',
               fontSize: '0.85rem',
               background: isPlaying ? '#e63946' : (selectedState ? '#4caf50' : '#333'),
               color: 'white',
@@ -335,44 +389,42 @@ export default function Home() {
               borderRadius: '4px',
               cursor: selectedState ? 'pointer' : 'not-allowed',
               fontFamily: 'monospace',
+              minHeight: '36px',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
             {isPlaying ? '⏹ Stop' : '▶ Play'}
           </button>
         </div>
 
-        {/* Count */}
-        <div style={{ color: '#aaa', fontSize: '0.8rem' }}>
-          {loading ? 'Loading...' : `${total} tornadoes`}
+        {/* Count — pushed to end */}
+        <div style={{ color: '#aaa', fontSize: '0.75rem', marginLeft: 'auto', whiteSpace: 'nowrap', flexShrink: 0 }}>
+          {loading ? 'Loading…' : `${total} tornadoes`}
         </div>
-        <div style={{ display: 'flex', gap: '0.4rem' }}>
-          <button onClick={() => handleSatellite(false)} style={btnStyle(!satellite, '#555')}>🗺 Map</button>
-          <button onClick={() => handleSatellite(true)} style={btnStyle(satellite, '#555')}>🛰 Satellite</button>
-        </div>
-
       </div>
 
-      <div style={{ position: 'relative', flex: 1 }}>
+      {/* Map — fills everything below header */}
+      <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
         <div ref={mapRef} style={{ position: 'absolute', inset: 0 }} />
         <div
           ref={dateLabelRef}
           style={{
             position: 'absolute',
-            bottom: '2rem',
+            bottom: '1rem',
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 1000,
             background: 'rgba(22,33,62,0.92)',
             color: 'white',
             fontFamily: 'monospace',
-            fontSize: '1rem',
-            padding: '0.5rem 1.2rem',
+            fontSize: '0.95rem',
+            padding: '0.5rem 1rem',
             borderRadius: '6px',
             border: '2px solid #555',
             pointerEvents: 'none',
-            minWidth: '200px',
+            minWidth: '180px',
             textAlign: 'center',
-            letterSpacing: '0.03em',
           }}
         />
       </div>
@@ -382,7 +434,7 @@ export default function Home() {
 
 function btnStyle(active, color) {
   return {
-    padding: '0.25rem 0.6rem',
+    padding: '0.4rem 0.55rem',
     fontSize: '0.8rem',
     background: active ? color : 'transparent',
     color: active ? 'white' : '#ccc',
@@ -390,5 +442,8 @@ function btnStyle(active, color) {
     borderRadius: '4px',
     cursor: 'pointer',
     fontFamily: 'monospace',
+    minHeight: '36px',
+    minWidth: '36px',
+    flexShrink: 0,
   };
 }
